@@ -39,5 +39,15 @@ with DAG(
         python_callable=clean_taxi_data,
     )
 
+    transform_task = PythonOperator(
+        task_id='transform_taxi_data',
+        python_callable=transform_taxi_data,
+    )
+
+    load_task = PythonOperator(
+        task_id='load_taxi_model',
+        python_callable=load_taxi_model,
+    )
+
     # กำหนด Pipeline Flow
     task_ingest >> task_clean >> transform_task >> load_task
