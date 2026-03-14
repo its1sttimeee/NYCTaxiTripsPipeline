@@ -3,6 +3,7 @@ import time
 import requests
 import pandas as pd
 import os
+from requests.exceptions import RequestException
 
 def ingest_taxi_data(**kwargs):
     url = "https://data.cityofnewyork.us/api/views/t29m-gskq/rows.csv"
@@ -22,31 +23,34 @@ def ingest_taxi_data(**kwargs):
 
     for attempt in range(max_retries):
         try:
-            logging.info(f"Downloading NYC taxi data (Attempt {attempt + 1}/{max_retries})...")
-            with requests.get(url, stream=True, timeout=60) as response:
+            logger.info(f"Attempt {attempt + 1}: Downloading data from {url}")
+            
+            with requests.get(url, stream=True, timeout=30) as response:
                 response.raise_for_status()
+                
                 with open(output_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-            logging.info("Download finished.")
+                    lines_written = 0
+                    for line in response.iter_lines():
+                        if line:
+                            f.write(line + b'\n')
+                            lines_written += 1
+                            if lines_written > max_records:
+                                break
             break
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Attempt {attempt + 1} failed: {e}")
-            if attempt < max_retries - 1:
-                time.sleep(5)
-            else:
-                raise Exception("Failed to download NYC taxi data after 3 attempts.") from e
-
-    logging.info("Validating downloaded dataset...")
+            
+        except RequestException as e:
+            logger.warning(f"Attempt {attempt + 1} failed: {e}")
+            if attempt == max_retries - 1:
+                logger.error("Max retries reached. Failing task.")
+                raise
+            time.sleep(5)
+            
     df = pd.read_csv(output_path)
     row_count = len(df)
     
-    logging.info(f"Downloaded dataset contains {row_count} rows.")
+    logger.info(f"Successfully downloaded and saved {row_count} records to {output_path}")
     
-    if row_count < 1000:
-        raise ValueError(f"Data validation failed: Expected at least 1000 rows, but got {row_count}.")
-    
-    ti = kwargs['ti']
-    ti.xcom_push(key='taxi_data_path', value=output_path)
-    
+    if row_count < max_records:
+        raise ValueError(f"Validation failed: File has {row_count} rows, expected at least {max_records}.")
+        
     return output_path
