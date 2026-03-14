@@ -5,6 +5,8 @@ from airflow.operators.python import PythonOperator
 # อิมพอร์ตฟังก์ชันจากโฟลเดอร์ scripts ที่เราสร้างไว้
 from scripts.ingest import ingest_taxi_data
 from scripts.clean import clean_taxi_data
+from scripts.transform import transform_taxi_data
+from scripts.load import load_taxi_model
 
 default_args = {
     'owner': 'data_engineer',
@@ -38,4 +40,4 @@ with DAG(
     )
 
     # กำหนด Pipeline Flow
-    task_ingest >> task_clean
+    task_ingest >> task_clean >> transform_task >> load_task
