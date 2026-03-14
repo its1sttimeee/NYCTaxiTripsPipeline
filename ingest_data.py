@@ -2,12 +2,24 @@ import logging
 import time
 import requests
 import pandas as pd
+import os
 
 def ingest_taxi_data(**kwargs):
-    url = "https://data.cityofnewyork.us/api/views/4c9mwp7t/rows.csv"
+    url = "https://data.cityofnewyork.us/api/views/t29m-gskq/rows.csv"
     output_path = "/tmp/nyc_taxi_raw.csv"
     max_retries = 3
+
+    output_dir = "/opt/airflow/dags/output"
+    output_path = os.path.join(output_dir, "nyc_taxi_raw.csv")
     
+    max_records = 1000
+    max_retries = 3
+    
+    logger = logging.getLogger("airflow.task")
+
+    # 2. สร้างโฟลเดอร์ปลายทางเตรียมไว้เลย (ถ้ามีอยู่แล้วก็ไม่เป็นไร)
+    os.makedirs(output_dir, exist_ok=True)
+
     for attempt in range(max_retries):
         try:
             logging.info(f"Downloading NYC taxi data (Attempt {attempt + 1}/{max_retries})...")
